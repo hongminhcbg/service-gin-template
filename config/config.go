@@ -1,25 +1,34 @@
 package config
 
-import "os"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/spf13/viper"
+)
 
 type Config struct {
-	RedisUrl string `json:"redis_url,omitempty"`
-	MySqlUrl string `json:"my_sql_url,omitempty"`
+	RedisUrl string `mapstructure:"redis_url" yaml:"redis_url" json:"redis_url,omitempty"`
+	MySqlUrl string `mapstructure:"my_sql_url" yaml:"my_sql_url" json:"my_sql_url,omitempty"`
+	Env      string `mapstructure:"env" yaml:"env" json:"env,omitempty"`
 }
 
-func Load() *Config {
-	cfg := &Config{
-		RedisUrl: os.Getenv("REDIS_URL"),
-		MySqlUrl: os.Getenv("MYSQL_URL"),
+func Init() (*Config, error) {
+	viper.SetConfigName("config") // name of config file (without extension)
+	viper.SetConfigType("yaml")   // REQUIRED if the config file does not have the extension in the name
+	viper.AddConfigPath(".")      // optionally look for config in the working directory
+	err := viper.ReadInConfig()   // Find and read the config file
+	if err != nil {               // Handle errors reading the config file
+		panic(fmt.Errorf("fatal error config file: %w", err))
 	}
 
-	if len(cfg.MySqlUrl) == 0 {
-		cfg.MySqlUrl = "root:12345678@tcp(localhost:3306)/reliable_execution?charset=utf8mb4&collation=utf8mb4_unicode_ci&parseTime=True&loc=Local"
-	}
+	viper.SetEnvKeyReplacer(strings.NewReplacer("__", "."))
+	viper.AutomaticEnv()
 
-	if len(cfg.RedisUrl) == 0 {
-		cfg.RedisUrl = "redis://localhost:6379?read_timeout=30&pool_fifo=true&dial_timeout=10&write_timeout=30&pool_size=10&pool_timeout=30"
+	cfg := &Config{}
+	err = viper.Unmarshal(&cfg)
+	if err != nil {
+		return nil, err
 	}
-
-	return cfg
+	return cfg, nil
 }
