@@ -2,10 +2,10 @@ package service
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/hongminhcbg/service-gin-template/config"
 	"github.com/hongminhcbg/service-gin-template/src/models"
 	"github.com/hongminhcbg/service-gin-template/src/store"
@@ -16,16 +16,19 @@ import (
 
 type Service struct {
 	store *store.UserStore
+	log   logr.Logger
 }
 
-func NewService(cfg *config.Config, store *store.UserStore, r *redis.Client) *Service {
+func NewService(cfg *config.Config, store *store.UserStore, r *redis.Client, log logr.Logger) *Service {
 	return &Service{
 		store: store,
+		log:   log,
 	}
 }
 
 func (s *Service) createNewUser(ctx *gin.Context, req *models.CreateUserRequest) {
 	if req.ReqId == "" {
+		s.log.Info("req_id id empty, auto generate")
 		req.ReqId = fmt.Sprint(time.Now().UnixMilli())
 	}
 
@@ -38,11 +41,11 @@ func (s *Service) createNewUser(ctx *gin.Context, req *models.CreateUserRequest)
 
 	err := s.store.Save(ctx.Request.Context(), &r)
 	if err != nil {
-		log.Println(err, "save to record error")
+		s.log.Error(err, "save to record error")
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
 		return
 	}
-	log.Println("create new user success")
+	s.log.Info("create new user success")
 	ctx.JSON(http.StatusOK, r)
 }
 
@@ -54,11 +57,13 @@ func (s *Service) CreateUser(ctx *gin.Context) {
 	var req models.CreateUserRequest
 	err := ctx.ShouldBindJSON(&req)
 	if err != nil {
+		s.log.Error(err, "json unmarshal error")
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err})
 		return
 	}
 
 	if req.ReqId == "" {
+		s.log.Info("Will create new user")
 		s.createNewUser(ctx, &req)
 		return
 	}
