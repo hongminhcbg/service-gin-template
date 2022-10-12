@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/hongminhcbg/service-gin-template/config"
 	"github.com/hongminhcbg/service-gin-template/src/router"
 	"github.com/hongminhcbg/service-gin-template/src/service"
@@ -21,6 +22,7 @@ import (
 )
 
 var cfg *config.Config
+var logger logr.Logger
 
 func initDb() *gorm.DB {
 	db, err := gorm.Open(mysql.Open(cfg.MySqlUrl))
@@ -55,7 +57,7 @@ func initRedis() *redis.Client {
 	}
 	redisClient := redis.NewClient(rdOtps)
 	if err := redisClient.Ping(context.Background()).Err(); err != nil {
-		panic("ping redis error" + err.Error())
+		panic("ping redis error " + err.Error())
 	}
 
 	return redisClient
@@ -73,11 +75,11 @@ func main() {
 		fmt.Println(string(b))
 	}
 
-	fmt.Println("ping redis success")
+	logger = cfg.InitLog()
 	db := initDb()
 	redisClient := initRedis()
 	userStore := store.NewUseStore(db)
-	svc := service.NewService(cfg, userStore, redisClient)
+	svc := service.NewService(cfg, userStore, redisClient, logger)
 	engine := gin.Default()
 	router.InitGin(engine, svc)
 	go func() {
